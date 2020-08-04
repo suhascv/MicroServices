@@ -5,8 +5,9 @@
 var express = require('express');
 var app = express();
 var fetch = require('node-fetch');
+const fs = require('fs');
 // enable CORS (https://en.wikipedia.org/wiki/Cross-origin_resource_sharing)
- 
+// so that your API is remotely testable by FCC 
 var cors = require('cors');
 app.use(cors({optionSuccessStatus: 200}));  // some legacy browsers choke on 204
 
@@ -24,21 +25,46 @@ app.get("/api/hello", function (req, res) {
   res.json({greeting: 'hello API'});
 });
 
-//fetching location from ip
+
 async function getLoc(ip){
   let loc = await fetch("https://www.iplocate.io/api/lookup/"+ip.toString());
   let locjson = await loc.json();
-  return {latitude:locjson.latitude,longitude:locjson.longitude}
+  console.log(locjson);
+  return {latitude:locjson.latitude,longitude:locjson.longitude,city:locjson.city,country:locjson.country,postal_code:locjson.postal_code}
 }
 
-//responding with ip,location,software
 app.get("/api/whoami",async (req,res)=>{
   var ip =req.header('x-forwarded-for').split(',')[0]
   var lang = req.header('Accept-Language')
   var software = req.header('User-Agent')
   var loc = await getLoc(ip);
-  var resp = {ipaddress:ip,language:lang,software:software,latitude:loc.latitude,longitude:loc.longitude} 
-  console.log(resp)
+  var resp = {ipaddress:ip,
+              language:lang,
+              software:software,
+              latitude:loc.latitude,
+              longitude:loc.longitude,
+              city:loc.city,
+              country:loc.country,
+              postal_code:loc.postal_code
+             } 
+  const requests = require(__dirname+"/requests");
+  console.log(requests);
+  requests.push(resp)
+  fs.writeFileSync(__dirname+'/requests.json',JSON.stringify(requests),err=>{
+    if(err)
+      console.log(err);
+    else
+      console.log('updated');
+  });
+  fs.readFile(__dirname+'/requests.json',(err,data)=>{
+                            if(err)
+                              console.log(err)
+            console.log("requests");
+            console.log(JSON.parse(data)); 
+            
+  }     
+  );
+  
   res.json(resp)
 })
 
@@ -47,3 +73,4 @@ app.get("/api/whoami",async (req,res)=>{
 var listener = app.listen(process.env.PORT, function () {
   console.log('Your app is listening on port ' + listener.address().port);
 });
+
